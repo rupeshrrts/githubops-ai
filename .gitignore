@@ -10,7 +10,8 @@ ENV/
 .python-version
 pip-log.txt
 
-# Environment and secrets
+
+# Environment and secret
 .env
 .env.*
 *.secret
