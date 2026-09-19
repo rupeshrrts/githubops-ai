@@ -18,22 +18,26 @@ Managing GitHub via traditional web interfaces or CLI commands often requires na
 
 #### 1️⃣ Read-Only Action (Fetching Repositories)
 The assistant automatically retrieves and displays your GitHub repositories in markdown tables without requiring approval.
-![Repository Listing](assets/repo_list_demo.png)
+![Repository Listing](githubops_ai/assets/repo_list_demo.png)
 
 #### 2️⃣ Human-in-the-Loop Approval Gate (Risky Action Pause)
 When a destructive or write action is requested (e.g., deleting a repository), the agent pauses execution, presents a prominent alert banner, and waits for explicit user confirmation via interactive **Approve / Reject** buttons.
-![Approval Gate Banner](assets/approval_gate_demo.png)
+![Approval Gate Banner](githubops_ai/assets/approval_gate_demo.png)
+
+**Approval detail panel example:** Before a risky change is executed, the app shows the exact repository, the requested action, and the new target state. For example, when changing repository visibility, the approval screen clearly displays the repository name and the new visibility setting (`Public` vs `Private`) so the user can confirm or reject with full awareness.
+
+![Visibility approval screen](githubops_ai/assets/approval_visibility_demo.svg)
 
 #### 3️⃣ Execution & Confirmation
 Upon clicking **Approve**, the agent resumes the LangGraph workflow, calls the GitHub REST API, and confirms the deletion.
-![Deletion Confirmation](assets/deletion_success_demo.png)
+![Deletion Confirmation](githubops_ai/assets/deletion_success_demo.png)
 
 ---
 
 ## 🏗️ 2. System Architecture & Workflow
 
 ### 📝 Handwritten Architecture & Notes Diagram
-![Handwritten Workflow Notes](assets/handwritten_notes_workflow.png)
+![Handwritten Workflow Notes](githubops_ai/assets/handwritten_notes_workflow.png)
 
 ---
 

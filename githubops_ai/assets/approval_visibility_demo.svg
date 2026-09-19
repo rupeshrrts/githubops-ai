@@ -1,0 +1,42 @@
+<svg width="1600" height="760" viewBox="0 0 1600 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="760" fill="#050B14"/>
+
+  <rect x="90" y="30" width="1420" height="78" rx="12" fill="#151C28" stroke="#2B3445"/>
+  <circle cx="145" cy="69" r="20" fill="#E24D4D"/>
+  <path d="M145 54C158 54 168 63 168 76C168 90 159 100 145 100C131 100 122 90 122 76C122 63 131 54 145 54ZM145 60C136 60 129 67 129 76C129 85 136 92 145 92C154 92 161 85 161 76C161 67 154 60 145 60Z" fill="#FFB7B7" fill-opacity="0.9"/>
+  <path d="M136 86H154V88H136V86Z" fill="#FDECEC"/>
+  <path d="M142 58L143 78H147L148 58H142ZM143 86H147V90H143V86Z" fill="#FDECEC"/>
+  <text x="190" y="81" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="30" font-weight="700">Ingest-into_Neo4j change the private to public</text>
+
+  <rect x="160" y="150" width="1280" height="88" rx="12" fill="#7A7B2B"/>
+  <text x="260" y="204" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="34" font-weight="600">Approval required for</text>
+  <text x="754" y="204" fill="#DDEB68" font-family="Arial, sans-serif" font-size="34" font-weight="700">update_repository_visibility</text>
+  <text x="1202" y="204" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="34" font-weight="600">. Review the details below, then click Approve or Reject.</text>
+
+  <text x="120" y="330" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="54" font-weight="700">Visibility details</text>
+
+  <text x="120" y="420" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="30" font-weight="600">Repository (owner/name)</text>
+  <rect x="120" y="440" width="1340" height="78" rx="12" fill="#2A2F37"/>
+  <text x="155" y="489" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="30" font-weight="500">Ingest-into_Neo4j</text>
+
+  <text x="120" y="595" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="30" font-weight="600">New visibility</text>
+
+  <g transform="translate(120 620)">
+    <circle cx="18" cy="18" r="18" fill="#EC5A5A"/>
+    <circle cx="18" cy="18" r="8" fill="#F4F7FA"/>
+    <text x="56" y="30" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="30" font-weight="500">Public</text>
+    <circle cx="260" cy="18" r="17" fill="none" stroke="#A2B0C2" stroke-width="4"/>
+    <text x="298" y="30" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="30" font-weight="500">Private</text>
+  </g>
+
+  <rect x="120" y="680" width="300" height="62" rx="12" fill="#E85C5C"/>
+  <text x="228" y="720" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="30" font-weight="600" text-anchor="middle">Approve</text>
+
+  <rect x="510" y="680" width="330" height="62" rx="12" fill="none" stroke="#4E5A68" stroke-width="2"/>
+  <text x="675" y="720" fill="#F4F7FA" font-family="Arial, sans-serif" font-size="30" font-weight="600" text-anchor="middle">Reject</text>
+
+  <rect x="95" y="770" width="1410" height="82" rx="12" fill="#101820" stroke="#2A3340"/>
+  <text x="150" y="820" fill="#9AA7B7" font-family="Arial, sans-serif" font-size="28">Type a GitHub command...</text>
+  <rect x="1460" y="790" width="34" height="34" rx="6" fill="#2F3A4A"/>
+  <path d="M1476 805L1476 820M1476 820L1468 812M1476 820L1484 812" stroke="#E8EEF6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
