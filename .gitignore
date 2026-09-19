@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+venv/
+.venv/
+.env/
+ENV/
+.python-version
+pip-log.txt
+
+# Environment and secrets
+.env
+.env.*
+*.secret
+*.pem
+.secrets/
+
+# Local app state and generated files
+*.db
+*.sqlite3
+*.log
+.streamlit/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
