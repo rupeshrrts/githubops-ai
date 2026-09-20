@@ -1,10 +1,10 @@
-# 🐙 GitHubOps AI
+# GitHubOps AI
 
 **GitHubOps AI** is an intelligent, natural-language GitHub assistant built with **LangGraph**, **Streamlit**, and **NVIDIA AI LLMs** (`openai/gpt-oss-20b`). It allows developers and managers to interact with GitHub repositories, issues, pull requests, branches, and code files using plain natural language (English or Hinglish) — with a built-in **Human-in-the-Loop approval gate** for safe write operations.
 
 ---
 
-## 📌 1. Project Definition & Concept
+## 1. Project Definition & Concept
 
 Managing GitHub via traditional web interfaces or CLI commands often requires navigating multiple pages or memorizing syntax. **GitHubOps AI** bridges this gap by acting as an AI co-pilot for GitHub operations:
 
@@ -14,13 +14,13 @@ Managing GitHub via traditional web interfaces or CLI commands often requires na
 
 ---
 
-### 🖼️ Application Interface & Workflow Screenshots
+### Application Interface & Workflow Screenshots
 
-#### 1️⃣ Read-Only Action (Fetching Repositories)
+#### 1. Read-Only Action (Fetching Repositories)
 The assistant automatically retrieves and displays your GitHub repositories in markdown tables without requiring approval.
 ![Repository Listing](githubops_ai/assets/repo_list_demo.png)
 
-#### 2️⃣ Human-in-the-Loop Approval Gate (Risky Action Pause)
+#### 2. Human-in-the-Loop Approval Gate (Risky Action Pause)
 When a destructive or write action is requested (e.g., deleting a repository), the agent pauses execution, presents a prominent alert banner, and waits for explicit user confirmation via interactive **Approve / Reject** buttons.
 ![Approval Gate Banner](githubops_ai/assets/approval_gate_demo.png)
 
@@ -28,20 +28,20 @@ When a destructive or write action is requested (e.g., deleting a repository), t
 
 ![Visibility approval screen](githubops_ai/assets/approval_visibility_demo.svg)
 
-#### 3️⃣ Execution & Confirmation
+#### 3. Execution & Confirmation
 Upon clicking **Approve**, the agent resumes the LangGraph workflow, calls the GitHub REST API, and confirms the deletion.
 ![Deletion Confirmation](githubops_ai/assets/deletion_success_demo.png)
 
 ---
 
-## 🏗️ 2. System Architecture & Workflow
+## 2. System Architecture & Workflow
 
-### 📝 Handwritten Architecture & Notes Diagram
+### Handwritten Architecture & Notes Diagram
 ![Handwritten Workflow Notes](githubops_ai/assets/handwritten_notes_workflow.png)
 
 ---
 
-### 📚 Easy 5-Step Execution Walkthrough
+### Easy 5-Step Execution Walkthrough
 
 Here is how **GitHubOps AI** handles any request in 5 simple steps:
 
@@ -63,7 +63,7 @@ Here is how **GitHubOps AI** handles any request in 5 simple steps:
 
 ---
 
-### 🔄 System Execution Flowchart (Mermaid)
+### System Execution Flowchart (Mermaid)
 
 ```mermaid
 flowchart TD
@@ -100,7 +100,7 @@ flowchart TD
 
 ---
 
-## 🛠️ 3. Prerequisites
+## 3. Prerequisites
 
 Before installing, ensure you have the following installed and available:
 
@@ -111,7 +111,7 @@ Before installing, ensure you have the following installed and available:
 
 ---
 
-## ⚙️ 4. Installation & Setup Guide
+## 4. Installation & Setup Guide
 
 ### Step 1 — Clone / Download Project
 Navigate to the project root directory:
@@ -183,7 +183,7 @@ GITHUB_SSL_VERIFY=false
 
 ---
 
-## 🚀 5. Running the Application
+## 5. Running the Application
 
 ### Option A: Standard Full Agent Web UI (Recommended)
 Run the Streamlit application:
@@ -200,7 +200,7 @@ streamlit run simple_chat.py
 
 ---
 
-## 🛡️ 6. Tool Safety & Action Matrix
+## 6. Tool Safety & Action Matrix
 
 | Tool Category | Actions | Execution Workflow |
 |---|---|---|
@@ -209,7 +209,7 @@ streamlit run simple_chat.py
 
 ---
 
-## 💬 7. Example Prompts
+## 7. Example Prompts
 
 Try asking the assistant:
 
