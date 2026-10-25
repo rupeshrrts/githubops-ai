@@ -8,19 +8,14 @@ import { query } from "@/backend/db";
 import { missingScopes, requestedScopes } from "@/backend/github/scopes";
 import { loadWorkspace } from "@/backend/pages";
 import { PERMISSIONS } from "@/backend/rbac";
+import { getAccountSummary } from "@/backend/store";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const { user, shell } = await loadWorkspace();
-  const [account] = await query<{ scope: string | null; connected: boolean; tokenUpdatedAt: string | null; usage: number }>(
-    `SELECT a.scope, (a.access_token IS NOT NULL) AS connected, p.token_updated_at::text AS "tokenUpdatedAt",
-            COALESCE((SELECT count FROM usage_daily WHERE user_id = $1 AND day = CURRENT_DATE), 0) AS usage
-     FROM accounts a LEFT JOIN user_profiles p ON p.user_id = a."userId"::text
-     WHERE a."userId" = $1 AND a.provider = 'github' ORDER BY a.id DESC LIMIT 1`,
-    [user.id],
-  );
+  const account = await getAccountSummary(user.id);
   const missing = new Set(missingScopes(account?.scope ?? null));
   const permissionRows = await query<{ name: string; description: string }>(
     "SELECT name, description FROM permissions ORDER BY name",

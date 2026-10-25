@@ -7,7 +7,7 @@ This guide puts GitHubOps AI online at a public `https://….vercel.app` address
 | Thing | Where to get it | You'll need |
 |---|---|---|
 | The code on GitHub | Push this project to a GitHub repository | The repository |
-| A database | [supabase.com](https://supabase.com) | The **Session pooler** connection string |
+| A database | [supabase.com](https://supabase.com) | The **Transaction pooler** connection string (port `6543`) |
 | A GitHub OAuth App | [github.com/settings/developers](https://github.com/settings/developers) | Client ID and Client secret |
 | An AI key | [build.nvidia.com](https://build.nvidia.com) | The key that starts with `nvapi-` |
 
@@ -40,7 +40,7 @@ Open **Environment Variables** on the same screen and add these 8 values. Copy t
 
 | Name | Value |
 |---|---|
-| `DATABASE_URL` | Supabase **Session pooler** link, with your password |
+| `DATABASE_URL` | Supabase **Transaction pooler** link ending in `:6543/postgres`, with your password. **Not** port 5432 |
 | `AUTH_SECRET` | from `.env.local` |
 | `TOKEN_ENCRYPTION_KEY` | from `.env.local`. **Never change it later** |
 | `CRON_SECRET` | from `.env.local` |
@@ -92,9 +92,9 @@ Share the address. That's your live demo.
 | Problem | Fix |
 |---|---|
 | The site says *Deployment setup required* | A setting is missing. Add it under **Settings → Environment Variables**, then **Deployments → ⋯ → Redeploy** |
-| `/api/health` shows `"database":"error"` | `DATABASE_URL` is wrong. Copy it again from Supabase (**Connect → Session pooler**) and keep special characters encoded (`@` → `%40`) |
+| `/api/health` shows `"database":"error"` | `DATABASE_URL` is wrong. Copy it again from Supabase (**Connect → Transaction pooler**, port `6543`) and keep special characters encoded (`@` → `%40`). Port `5432` fails with *max clients reached* |
+| Changed a setting but the site didn't change | Settings apply only after **Deployments → ⋯ → Redeploy**. Secret values can't be viewed later, so paste the whole value when editing |
 | GitHub says *redirect_uri is not associated with this application* | Add the exact Vercel address + `/api/auth/callback/github` as a redirect URI (Step 4) |
 | *Sign-in didn't complete* | Click **Sign in with GitHub** again and finish in the same tab within 15 minutes |
 | AI replies time out | Check `LLM_MODEL` is `nvidia/nemotron-3.5-lightning-30b-a3b` and `NVIDIA_API_KEY` is correct |
-| *Too many connections* once many people use it | In `DATABASE_URL`, change the port `5432` to `6543` (Supabase's transaction pooler) |
 | Everyone got signed out after a change | `TOKEN_ENCRYPTION_KEY` or `AUTH_SECRET` was changed. Put the old values back |

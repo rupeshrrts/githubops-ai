@@ -127,6 +127,15 @@ describe("GitHub tokens", () => {
     expect(stored.startsWith("enc:v1:")).toBe(true);
   });
 
+  it("summarises the connection for the Settings page", async () => {
+    const user = await addUser(h.db, "dana");
+    expect(await store.getAccountSummary(user)).toBeNull(); // no GitHub account linked yet
+    await linkAccount(user, "gho_x");
+    await store.countUsage(user);
+    await store.countUsage(user);
+    expect(await store.getAccountSummary(user)).toMatchObject({ scope: "repo", connected: true, usage: 2 });
+  });
+
   it("forgets the token and signs the user out", async () => {
     const user = await addUser(h.db, "carol");
     await linkAccount(user, "gho_x");

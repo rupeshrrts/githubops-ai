@@ -44,6 +44,24 @@ export async function getGithubScopes(userId: string): Promise<string | null> {
   return rows[0]?.scope ?? null;
 }
 
+/** What the Settings page shows about the user's GitHub connection and today's usage. */
+export async function getAccountSummary(userId: string): Promise<{
+  scope: string | null;
+  connected: boolean;
+  tokenUpdatedAt: string | null;
+  usage: number;
+} | null> {
+  // accounts."userId" is an integer and the other tables store ids as text, so compare as text everywhere.
+  const rows = await query<{ scope: string | null; connected: boolean; tokenUpdatedAt: string | null; usage: number }>(
+    `SELECT a.scope, (a.access_token IS NOT NULL) AS connected, p.token_updated_at::text AS "tokenUpdatedAt",
+            COALESCE((SELECT u.count FROM usage_daily u WHERE u.user_id = $1::text AND u.day = CURRENT_DATE), 0) AS usage
+     FROM accounts a LEFT JOIN user_profiles p ON p.user_id = a."userId"::text
+     WHERE a."userId"::text = $1::text AND a.provider = 'github' ORDER BY a.id DESC LIMIT 1`,
+    [userId],
+  );
+  return rows[0] ?? null;
+}
+
 export async function getGithubLogin(userId: string): Promise<string | null> {
   const rows = await query<{ github_login: string }>("SELECT github_login FROM user_profiles WHERE user_id = $1", [
     userId,
