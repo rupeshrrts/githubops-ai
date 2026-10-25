@@ -21,7 +21,6 @@ coverage/
 *.log
 
 # ---------- Archives (can bundle .env and databases by accident)
-*.zip
 *.7z
 *.rar
 *.tar
