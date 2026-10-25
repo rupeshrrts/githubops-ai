@@ -36,7 +36,7 @@ describe("database/setup.sql", () => {
     );
     expect(rows[0].total).toBeGreaterThanOrEqual(18);
     expect(rows[0].locked).toBe(rows[0].total);
-    expect((await h.db.query<{ version: number }>("SELECT version FROM schema_info")).rows[0].version).toBe(3);
+    expect((await h.db.query<{ version: number }>("SELECT version FROM schema_info")).rows[0].version).toBe(5);
   });
 });
 
@@ -98,51 +98,40 @@ describe("roles and permissions", () => {
   });
 });
 
-describe("GitHub tokens", () => {
+describe("GitHub sign-in keeps no token in the database", () => {
   async function linkAccount(userId: string, token: string) {
     await h.db.query(
       `INSERT INTO accounts ("userId", type, provider, "providerAccountId", access_token, scope)
        VALUES ($1, 'oauth', 'github', $3, $2, 'repo')`,
-      [userId, token, `gh-${userId}`],
+      [userId, token, `${userId}000`],
     );
   }
+  const storedTokens = async () =>
+    (await h.db.query<{ access_token: string | null }>("SELECT access_token FROM accounts")).rows.map((row) => row.access_token);
 
-  it("stores tokens encrypted and decrypts them on read", async () => {
+  it("drops the token Auth.js saved and records who signed in", async () => {
     const user = await addUser(h.db, "alice");
-    await linkAccount(user, "gho_plain_from_adapter");
-    await store.saveGithubSignIn(user, "alice", `gh-${user}`, "gho_fresh", "repo,workflow");
+    await linkAccount(user, "gho_from_adapter");
+    await store.saveGithubSignIn(user, "alice", `${user}000`);
 
-    const stored = (await h.db.query<{ access_token: string; scope: string }>("SELECT access_token, scope FROM accounts")).rows[0];
-    expect(stored.access_token.startsWith("enc:v1:")).toBe(true);
-    expect(stored.access_token).not.toContain("gho_fresh");
-    expect(stored.scope).toBe("repo,workflow");
-    expect(await store.getGithubToken(user)).toBe("gho_fresh");
+    expect(await storedTokens()).toEqual([null]);
+    expect(await store.getGithubLogin(user)).toBe("alice");
+    expect(await store.getGithubAccountId(user)).toBe(`${user}000`);
   });
 
-  it("re-encrypts legacy plaintext tokens on first read", async () => {
+  it("removes tokens saved by older versions when the schema is applied", async () => {
     const user = await addUser(h.db, "bob");
-    await linkAccount(user, "gho_legacy");
-    expect(await store.getGithubToken(user)).toBe("gho_legacy");
-    const stored = (await h.db.query<{ access_token: string }>("SELECT access_token FROM accounts")).rows[0].access_token;
-    expect(stored.startsWith("enc:v1:")).toBe(true);
+    await linkAccount(user, "enc:v1:old-full-access-token");
+    await h.db.exec(SETUP_SQL);
+    expect(await storedTokens()).toEqual([null]);
   });
 
-  it("summarises the connection for the Settings page", async () => {
+  it("counts today's usage for the Settings page", async () => {
     const user = await addUser(h.db, "dana");
-    expect(await store.getAccountSummary(user)).toBeNull(); // no GitHub account linked yet
-    await linkAccount(user, "gho_x");
+    expect(await store.usageToday(user)).toBe(0);
     await store.countUsage(user);
     await store.countUsage(user);
-    expect(await store.getAccountSummary(user)).toMatchObject({ scope: "repo", connected: true, usage: 2 });
-  });
-
-  it("forgets the token and signs the user out", async () => {
-    const user = await addUser(h.db, "carol");
-    await linkAccount(user, "gho_x");
-    await h.db.query(`INSERT INTO sessions ("userId", expires, "sessionToken") VALUES ($1, now(), 'tok')`, [user]);
-    await store.clearGithubToken(user);
-    expect(await store.getGithubToken(user)).toBeNull();
-    expect((await h.db.query("SELECT * FROM sessions")).rows).toHaveLength(0);
+    expect(await store.usageToday(user)).toBe(2);
   });
 });
 
@@ -174,7 +163,14 @@ describe("conversations, approvals and audit", () => {
 
     expect(await store.resolveRequest(id, "approved", admin, "ok")).toBe(true);
     expect(await store.resolveRequest(id, "rejected", admin)).toBe(false); // already decided
-    expect(await store.getRequest(id)).toMatchObject({ status: "approved", reviewerLogin: "root", reviewNote: "ok" });
+    expect(await store.getRequest(id)).toMatchObject({ status: "approved", reviewerLogin: "root", reviewNote: "ok", awaitingRequester: true });
+
+    // The decision stays open until the requester takes it, exactly once.
+    expect(await store.getOpenRequest(conversationId)).toMatchObject({ id, status: "approved" });
+    expect(await store.claimDecidedRequest(admin, conversationId)).toBeNull(); // only the requester can
+    expect(await store.claimDecidedRequest(alice, conversationId)).toMatchObject({ id, awaitingRequester: false });
+    expect(await store.claimDecidedRequest(alice, conversationId)).toBeNull();
+    expect(await store.getOpenRequest(conversationId)).toBeNull();
 
     await store.createApprovalRequest({ ...input, toolCallId: "c3" });
     await store.cancelOpenRequests(conversationId);
@@ -200,7 +196,7 @@ describe("conversations, approvals and audit", () => {
     expect(await store.countUsage(alice)).toBe(2);
     await rbac.setOverride(alice, "workflows.run", false, alice);
     const [user] = await store.listUsers();
-    expect(user).toMatchObject({ login: "alice", role: "member", usageToday: 2, disabled: false, hasToken: false });
+    expect(user).toMatchObject({ login: "alice", role: "member", usageToday: 2, disabled: false });
     expect(user.overrides).toEqual({ "workflows.run": false });
     expect(await store.adminStats()).toMatchObject({ users: 1, activeWeek: 1, pendingReviews: 0 });
   });
@@ -235,23 +231,18 @@ describe("repository sync", () => {
     await sync.syncRepositories(alice, octokitWith([[repo(1, "api"), repo(2, "web")], [repo(3, "old")]]), "manual");
     expect((await sync.listRepositories(alice)).map((item) => item.name)).toEqual(["old", "web", "api"]);
 
-    await sync.syncRepositories(alice, octokitWith([[repo(1, "api", { private: true }), repo(2, "web")]]), "cron");
+    await sync.syncRepositories(alice, octokitWith([[repo(1, "api", { private: true }), repo(2, "web")]]), "auto");
     const repos = await sync.listRepositories(alice);
     expect(repos.map((item) => item.name)).toEqual(["web", "api"]);
     expect(repos.find((item) => item.name === "api")).toMatchObject({ private: true, fullName: "octo/api", stars: 1 });
     expect(await sync.lastSync(alice)).toMatchObject({ status: "success", repositories: 2 });
   });
 
-  it("records failed syncs and schedules users who are due", async () => {
+  it("records failed syncs", async () => {
     const alice = await addUser(h.db, "alice");
-    await h.db.query(
-      `INSERT INTO accounts ("userId", type, provider, "providerAccountId", access_token) VALUES ($1, 'oauth', 'github', 'x', 'enc:v1:x')`,
-      [alice],
-    );
-    expect(await sync.usersDueForSync(10)).toEqual([alice]);
     await expect(sync.syncRepositories(alice, octokitWith([], true), "manual")).rejects.toThrow("Bad credentials");
     expect(await sync.lastSync(alice)).toMatchObject({ status: "error", error: "Bad credentials" });
     await sync.syncRepositories(alice, octokitWith([[repo(1, "api")]]), "manual");
-    expect(await sync.usersDueForSync(10)).toEqual([]);
+    expect(await sync.lastSync(alice)).toMatchObject({ status: "success", repositories: 1 });
   });
 });

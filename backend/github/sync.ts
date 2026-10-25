@@ -4,7 +4,7 @@ import { query } from "@/backend/db";
 import type { SyncedRepo } from "@/backend/types";
 
 // Repositories are mirrored into Postgres so the portal can list and search them instantly.
-// Sync runs on demand, automatically on first visit, and from the daily Vercel cron.
+// Sync runs on demand and automatically on the first visit, always with the user's own key.
 
 const MAX_REPOS = 1000;
 
@@ -101,19 +101,4 @@ export async function lastSync(userId: string): Promise<SyncRun | null> {
     [userId],
   );
   return rows[0] ?? null;
-}
-
-/** Users the cron job should refresh: connected, enabled, not synced successfully in `hours`. */
-export async function usersDueForSync(limit: number, hours = 20): Promise<string[]> {
-  const rows = await query<{ user_id: string }>(
-    `SELECT p.user_id FROM user_profiles p
-     WHERE NOT p.disabled
-       AND EXISTS (SELECT 1 FROM accounts a WHERE a."userId"::text = p.user_id AND a.provider = 'github'
-                   AND a.access_token IS NOT NULL)
-       AND NOT EXISTS (SELECT 1 FROM sync_runs s WHERE s.user_id = p.user_id AND s.status = 'success'
-                       AND s.started_at > now() - make_interval(hours => $2))
-     ORDER BY p.last_seen_at DESC NULLS LAST LIMIT $1`,
-    [limit, hours],
-  );
-  return rows.map((row) => row.user_id);
 }

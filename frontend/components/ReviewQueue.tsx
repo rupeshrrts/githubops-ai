@@ -16,7 +16,7 @@ function RequestCard({ request, selfId }: { request: ApprovalRequest & { age: st
   const own = request.requesterId === selfId;
 
   async function decide(decision: "approve" | "reject") {
-    const verb = decision === "approve" ? "Approve and run" : "Reject";
+    const verb = decision === "approve" ? "Approve" : "Reject";
     if (!confirm(`${verb} "${ACTION_LABELS[request.tool] ?? request.tool}" on ${targetOf(request.args)} for @${request.requesterLogin}?`)) return;
     setBusy(true);
     setError(null);
@@ -27,7 +27,6 @@ function RequestCard({ request, selfId }: { request: ApprovalRequest & { age: st
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) setError(data.error ?? "Could not record the decision.");
-    else if (data.toolError) setError(`Approved, but GitHub refused: ${data.toolError}`);
     setBusy(false);
     router.refresh();
   }
@@ -56,11 +55,15 @@ function RequestCard({ request, selfId }: { request: ApprovalRequest & { age: st
             onChange={(event) => setNote(event.target.value)}
           />
           <button type="button" disabled={busy} onClick={() => decide("approve")} className={buttonStyles.danger}>
-            Approve & run
+            Approve
           </button>
           <button type="button" disabled={busy} onClick={() => decide("reject")} className={buttonStyles.secondary}>
             Reject
           </button>
+          <p className="w-full text-xs text-zinc-500">
+            It then runs from @{request.requesterLogin}&apos;s side with their own GitHub access, the next time they&apos;re
+            on the site (within seconds if they&apos;re waiting).
+          </p>
         </div>
       )}
       {error && <p className="mt-2 text-sm text-red-300">{error}</p>}

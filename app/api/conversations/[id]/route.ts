@@ -1,17 +1,22 @@
-// GET /api/conversations/:id reads a conversation (the chat polls it while an admin review is open).
-// DELETE removes it; its audit entries are kept.
-import { agentFor, deleteThread } from "@/backend/agent";
+// GET /api/conversations/:id reads a conversation (the chat polls it while an admin review is open, which is
+// also when an admin's decision gets carried out with the user's key). DELETE removes it; audit entries stay.
+import { deleteThread } from "@/backend/agent";
 import { handle, ownedConversation, snapshot } from "@/backend/api";
+import { conversationState } from "@/backend/approvals";
+import { readGithubKey } from "@/backend/github/key";
 import { requireUser } from "@/backend/session";
 import { cancelOpenRequests, deleteConversation } from "@/backend/store";
 
 type Context = { params: Promise<{ id: string }> };
 
+export const maxDuration = 60;
+
 export function GET(request: Request, { params }: Context) {
   return handle(request, async () => {
     const user = await requireUser("chat.use");
     const { id } = await ownedConversation(user.id, (await params).id);
-    return snapshot(id, await (await agentFor(user.id, user.access)).state(id), user.access);
+    const state = await conversationState(user, id, Boolean(await readGithubKey(user.id)));
+    return snapshot(id, state, user.access);
   });
 }
 

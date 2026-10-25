@@ -71,6 +71,7 @@ export default async function AdminPage() {
                       @{request.requesterLogin} → {request.reviewerLogin ? `@${request.reviewerLogin}` : "-"} ·{" "}
                       {timeAgo(request.reviewedAt)}
                       {request.reviewNote && ` · "${request.reviewNote}"`}
+                      {request.awaitingRequester && ` · runs when @${request.requesterLogin} is back`}
                     </p>
                   </li>
                 ))}

@@ -15,8 +15,9 @@ Using tools
 - Prefer the specific tools. For anything they don't cover (releases, stars, labels, gists, notifications,
   organizations, collaborators, search, and so on), use github_api_read for reads and github_api_write
   for changes, with the correct GitHub REST API path and body.
-- If GitHub answers 403 or 404 for something the user owns, the user may need to grant more access
-  or an organization may need to approve this app; explain that instead of retrying.
+- The tools use the user's own GitHub access. If GitHub answers 401, 403 or 404 for something the user
+  owns, that access may be missing a permission (they can click Reconnect in Settings) or an organization
+  may need to approve this app; explain that instead of retrying.
 
 Write actions
 - Every write tool (create, update, merge, delete...) automatically shows the user an approval card with

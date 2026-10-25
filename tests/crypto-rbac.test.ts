@@ -18,7 +18,9 @@ describe("token encryption", () => {
 
   it("detects tampering and wrong keys", () => {
     const stored = encryptSecret("gho_secret", env);
-    const tampered = stored.slice(0, -2) + (stored.endsWith("A") ? "BB" : "AA");
+    // Change the first ciphertext character (every bit of it counts, unlike the last base64 character).
+    const at = stored.lastIndexOf(".") + 1;
+    const tampered = stored.slice(0, at) + (stored[at] === "A" ? "B" : "A") + stored.slice(at + 1);
     expect(() => decryptSecret(tampered, env)).toThrow();
     expect(() => decryptSecret(stored, { TOKEN_ENCRYPTION_KEY: randomBytes(32).toString("base64") })).toThrow();
   });

@@ -1,6 +1,6 @@
 // The chat screen: messages, example prompts, the approval card and the input box.
 // All AI work happens on the server: this component posts to /api/chat (or approve/reject) and shows
-// the conversation snapshot that comes back.
+// the conversation snapshot that comes back. In demo mode it talks to /api/demo/* instead.
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -18,6 +18,25 @@ const EXAMPLES = [
   "Show open pull requests in my most recently updated repo",
   "mera last push kis repo me tha?",
 ];
+
+const DEMO_EXAMPLES = [
+  "List all my repositories",
+  "Which of my repos have failing CI?",
+  "Create a private repo called my-new-app",
+  "Delete the dotfiles repo",
+];
+
+type Mode = "app" | "demo";
+
+/** Where each action goes: the signed-in app or the public demo. */
+function endpoints(mode: Mode, conversationId: string | null) {
+  if (mode === "demo") return { send: "/api/demo/chat", approve: "/api/demo/approve", reject: "/api/demo/reject" };
+  return {
+    send: "/api/chat",
+    approve: `/api/conversations/${conversationId}/approve`,
+    reject: `/api/conversations/${conversationId}/reject`,
+  };
+}
 
 type Busy = null | "thinking" | "approving" | "rejecting";
 
@@ -60,8 +79,20 @@ function Message({ message }: { message: ChatMessage }) {
   );
 }
 
-export function ChatPanel({ initial, draft: initialDraft = "" }: { initial: Snapshot | null; draft?: string }) {
+export function ChatPanel({
+  initial,
+  draft: initialDraft = "",
+  mode = "app",
+  onSnapshot,
+}: {
+  initial: Snapshot | null;
+  draft?: string;
+  mode?: Mode;
+  /** Called with every snapshot from the server (the demo uses it to refresh its repository panel). */
+  onSnapshot?: (snapshot: Snapshot) => void;
+}) {
   const router = useRouter();
+  const demo = mode === "demo";
   const [conversationId, setConversationId] = useState(initial?.conversationId ?? null);
   const [messages, setMessages] = useState<ChatMessage[]>(initial?.messages ?? []);
   const [pending, setPending] = useState(initial?.pending ?? null);
@@ -83,6 +114,7 @@ export function ChatPanel({ initial, draft: initialDraft = "" }: { initial: Snap
     setPending(snapshot.pending);
     setPolicy(snapshot.policy);
     setReview(snapshot.review);
+    onSnapshot?.(snapshot);
   }
 
   // While an admin review is open, check every 10 seconds so the result appears without a reload.
@@ -109,7 +141,7 @@ export function ChatPanel({ initial, draft: initialDraft = "" }: { initial: Snap
       if (!response.ok) {
         // The first message of a new chat may have been saved even though the AI failed:
         // switch to that conversation so the user can simply try again.
-        if (data.conversationId && !conversationId) {
+        if (data.conversationId && !conversationId && !demo) {
           setConversationId(data.conversationId);
           window.history.replaceState(null, "", `/chat/${data.conversationId}`);
           router.refresh();
@@ -118,6 +150,10 @@ export function ChatPanel({ initial, draft: initialDraft = "" }: { initial: Snap
       }
       const snapshot = data as Snapshot;
       apply(snapshot);
+      if (demo) {
+        setConversationId(snapshot.conversationId); // the demo has one conversation per visitor
+        return;
+      }
       if (!conversationId) {
         setConversationId(snapshot.conversationId);
         router.replace(`/chat/${snapshot.conversationId}`);
@@ -136,10 +172,11 @@ export function ChatPanel({ initial, draft: initialDraft = "" }: { initial: Snap
     if (!message || busy) return;
     setDraft("");
     setMessages((current) => [...current, { role: "user", content: message, tools: [] }]);
-    void post("/api/chat", { conversationId, message }, "thinking");
+    void post(endpoints(mode, conversationId).send, { conversationId, message }, "thinking");
   }
 
   const empty = messages.length === 0 && !pending;
+  const examples = demo ? DEMO_EXAMPLES : EXAMPLES;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -148,10 +185,16 @@ export function ChatPanel({ initial, draft: initialDraft = "" }: { initial: Snap
           {empty && (
             <div className="pt-10 text-center sm:pt-20">
               <LogoMark className="mx-auto size-12" />
-              <h1 className="mt-5 text-2xl font-semibold text-white">What should we do on GitHub?</h1>
-              <p className="mt-2 text-zinc-400">Reads run instantly. Anything that writes waits for your approval.</p>
+              <h1 className="mt-5 text-2xl font-semibold text-white">
+                {demo ? "Try it on a pretend GitHub account" : "What should we do on GitHub?"}
+              </h1>
+              <p className="mt-2 text-zinc-400">
+                {demo
+                  ? "Ask anything, create or delete repos: every change shows an approval card first, just like the real app."
+                  : "Reads run instantly. Anything that writes waits for your approval."}
+              </p>
               <div className="mx-auto mt-8 grid max-w-2xl gap-3 sm:grid-cols-2">
-                {EXAMPLES.map((example) => (
+                {examples.map((example) => (
                   <button
                     key={example}
                     type="button"
@@ -188,8 +231,8 @@ export function ChatPanel({ initial, draft: initialDraft = "" }: { initial: Snap
               policy={policy}
               review={review}
               busy={busy !== null}
-              onApprove={(args) => post(`/api/conversations/${conversationId}/approve`, { args }, "approving")}
-              onReject={() => post(`/api/conversations/${conversationId}/reject`, {}, "rejecting")}
+              onApprove={(args) => post(endpoints(mode, conversationId).approve, { args }, "approving")}
+              onReject={() => post(endpoints(mode, conversationId).reject, {}, "rejecting")}
             />
           )}
 
@@ -219,7 +262,13 @@ export function ChatPanel({ initial, draft: initialDraft = "" }: { initial: Snap
             }}
             rows={1}
             maxLength={4000}
-            placeholder={pending ? "Reply to decline the pending action, or ask something new..." : "Ask about your GitHub..."}
+            placeholder={
+              pending
+                ? "Reply to decline the pending action, or ask something new..."
+                : demo
+                  ? "Ask about the demo GitHub account..."
+                  : "Ask about your GitHub..."
+            }
             className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-white outline-none placeholder:text-zinc-500"
           />
           <button
@@ -232,7 +281,9 @@ export function ChatPanel({ initial, draft: initialDraft = "" }: { initial: Snap
           </button>
         </div>
         <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-zinc-500">
-          The agent acts with your GitHub permissions. Review every approval card carefully.
+          {demo
+            ? "Demo mode: a pretend GitHub account just for you. Nothing here touches real GitHub."
+            : "The agent acts with your GitHub permissions. Review every approval card carefully."}
         </p>
       </form>
     </div>

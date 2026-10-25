@@ -33,7 +33,7 @@ vi.mock("@/backend/session", () => {
   return { HttpError };
 });
 
-// The production agentFor, minus OAuth/LLM/Postgres-checkpointer wiring.
+// The production agentFor, minus GitHub key/LLM/Postgres-checkpointer wiring.
 vi.mock("@/backend/agent", async () => {
   const { tool } = await import("@langchain/core/tools");
   const { z } = await import("zod");
@@ -64,7 +64,7 @@ vi.mock("@/backend/agent", async () => {
 
 const { MemorySaver: Saver } = await import("@langchain/langgraph");
 const { agentFor } = await import("@/backend/agent");
-const { approvePending, rejectPending, reviewRequest } = await import("@/backend/approvals");
+const { approvePending, conversationState, rejectPending, reviewRequest } = await import("@/backend/approvals");
 const { snapshot } = await import("@/backend/api");
 const { getAccess } = await import("@/backend/rbac");
 const store = await import("@/backend/store");
@@ -111,7 +111,7 @@ describe("approval workflow", () => {
     expect((await store.listAudit(member.id))[0]).toMatchObject({ tool: "create_issue", decision: "approved", ok: true });
   });
 
-  it("sends a member's sensitive action to admin review, then runs it with the member's account", async () => {
+  it("sends a member's sensitive action to admin review, then runs it from the member's own account", async () => {
     const member = await user("mia", "member");
     const admin = await user("root", "admin");
     const { conversationId } = await ask(member, "delete_repository");
@@ -127,11 +127,24 @@ describe("approval workflow", () => {
     await approvePending(member, conversationId, {});
     expect(await store.listRequests("pending")).toHaveLength(1);
 
+    // The admin decides, but has no access to the member's GitHub: nothing runs yet.
+    await reviewRequest(admin, view.review!.id, "approve", "ok, old demo");
+    expect(h.executed).toEqual([]);
+    expect(await store.getRequest(view.review!.id)).toMatchObject({ status: "approved", reviewerLogin: "root", awaitingRequester: true });
+
+    // Without the member's key in the browser it keeps waiting, and their chat says so.
+    const later = await conversationState(member, conversationId, false);
+    expect((await snapshot(conversationId, later, member.access)).review).toMatchObject({ status: "approved" });
+    expect(h.executed).toEqual([]);
+
+    // With their key, the member's next check-in carries it out, exactly once.
     h.replies.push(new AIMessage("Deleted octo/demo."));
-    const { result } = await reviewRequest(admin, view.review!.id, "approve", "ok, old demo");
+    const done = await conversationState(member, conversationId, true);
+    expect(done.pending).toBeNull();
+    await conversationState(member, conversationId, true);
     expect(h.executed).toEqual(["delete_repository:octo/demo"]);
-    expect(result.pending).toBeNull();
-    expect(await store.getRequest(view.review!.id)).toMatchObject({ status: "approved", reviewerLogin: "root", resultOk: true });
+    expect(await store.getRequest(view.review!.id)).toMatchObject({ resultOk: true, awaitingRequester: false });
+    expect((await store.listMessages(conversationId)).at(-1)).toMatchObject({ role: "assistant", content: "Deleted octo/demo." });
 
     const audit = await store.listAudit(member.id);
     expect(audit.map((entry) => [entry.decision, entry.actorLogin])).toEqual([
@@ -147,12 +160,15 @@ describe("approval workflow", () => {
     await approvePending(member, conversationId, {});
     const request = (await store.getOpenRequest(conversationId))!;
 
+    await reviewRequest(admin, request.id, "reject", "keep it for the audit");
+    expect((await store.getRequest(request.id))?.status).toBe("rejected");
+
     h.replies.push(new AIMessage("An admin declined."));
-    const { result } = await reviewRequest(admin, request.id, "reject", "keep it for the audit");
+    const result = await conversationState(member, conversationId, true);
     expect(h.executed).toEqual([]);
+    expect(result.pending).toBeNull();
     const toolReply = result.messages.find((message) => message.getType() === "tool");
     expect(String(toolReply?.content)).toContain("keep it for the audit");
-    expect((await store.getRequest(request.id))?.status).toBe("rejected");
   });
 
   it("blocks self-review, non-reviewers, and double decisions", async () => {
@@ -168,9 +184,10 @@ describe("approval workflow", () => {
       "your own request",
     );
 
-    h.replies.push(new AIMessage("Done."));
     await reviewRequest(admin, request.id, "approve", "");
     await expect(reviewRequest(admin, request.id, "approve", "")).rejects.toMatchObject({ status: 409 });
+    h.replies.push(new AIMessage("Done."));
+    await conversationState(member, conversationId, true);
     expect(h.executed).toEqual(["delete_repository:octo/demo"]); // ran exactly once
   });
 

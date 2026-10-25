@@ -196,11 +196,15 @@ export function ApprovalCard({
               <span className="relative inline-flex size-2.5 rounded-full bg-amber-400" />
             </span>
             <p className="flex-1 text-sm text-amber-100">
-              Waiting for an admin to review this sensitive action. It runs automatically once approved.
+              {review.status === "pending"
+                ? "Waiting for an admin to review this sensitive action. Once approved, it runs from your account automatically."
+                : `@${review.reviewerLogin ?? "An admin"} ${review.status} this. Carrying it out from your account...`}
             </p>
-            <button type="button" onClick={onReject} disabled={busy} className={buttonStyles.secondary}>
-              Cancel request
-            </button>
+            {review.status === "pending" && (
+              <button type="button" onClick={onReject} disabled={busy} className={buttonStyles.secondary}>
+                Cancel request
+              </button>
+            )}
           </div>
         ) : !allowed ? (
           <div className="flex flex-wrap items-center gap-3">

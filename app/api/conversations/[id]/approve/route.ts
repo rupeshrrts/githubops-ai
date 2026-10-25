@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { handle, ownedConversation, readJson, saveAnswer, snapshot } from "@/backend/api";
 import { approvePending } from "@/backend/approvals";
+import { requireGithubKey } from "@/backend/github/key";
 import { HttpError, requireUser } from "@/backend/session";
 
 export const maxDuration = 60;
@@ -16,6 +17,7 @@ export function POST(request: Request, { params }: { params: Promise<{ id: strin
     const { id } = await ownedConversation(user.id, (await params).id);
     const body = Body.safeParse((await readJson(request)) ?? {});
     if (!body.success) throw new HttpError(400, "Invalid arguments.");
+    await requireGithubKey(user.id);
 
     const result = await approvePending(user, id, body.data.args);
     await saveAnswer(id, result);

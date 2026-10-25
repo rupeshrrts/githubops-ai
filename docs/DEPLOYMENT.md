@@ -79,7 +79,7 @@ Share the address. That's your live demo.
 
 - **Every push to `main` redeploys** the site.
 - **Every deploy updates the database:** the `vercel-build` script applies `database/setup.sql` first. It's safe to run again and again.
-- **Every day at 03:00 UTC,** the cron job in `vercel.json` refreshes everyone's repository list.
+- **Every day at 03:00 UTC,** the cron job in `vercel.json` deletes demo sessions older than 24 hours. (Repository lists refresh when each person opens Repositories: the server holds nobody's GitHub access to do it in the background.)
 - **Pull requests get their own preview address.** To sign in on a preview, add its address as another redirect URI.
 
 ## Before you share it publicly

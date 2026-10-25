@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   provider VARCHAR(255) NOT NULL,
   "providerAccountId" VARCHAR(255) NOT NULL,
   refresh_token TEXT,
-  access_token TEXT,            -- GitHub token, AES-256-GCM encrypted by the app ("enc:v1:...")
+  access_token TEXT,            -- always NULL: the app keeps no GitHub token (see below)
   expires_at BIGINT,
   id_token TEXT,
   scope TEXT,
@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS accounts (
   token_type TEXT
 );
 CREATE INDEX IF NOT EXISTS accounts_user_idx ON accounts ("userId");
+-- The GitHub access a user grants at sign-in is kept in their own browser (backend/github/key.ts), so no
+-- token belongs in the database. This also removes tokens saved by versions before 5.
+UPDATE accounts SET access_token = NULL, refresh_token = NULL, id_token = NULL
+WHERE access_token IS NOT NULL OR refresh_token IS NOT NULL OR id_token IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id SERIAL PRIMARY KEY,
@@ -185,6 +189,8 @@ CREATE TABLE IF NOT EXISTS approval_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   reviewed_at TIMESTAMPTZ
 );
+-- Decided by a reviewer, not carried out yet: it runs from the requester's side, with their own GitHub access.
+ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS awaiting_requester BOOLEAN NOT NULL DEFAULT false;
 -- At most one open request per conversation.
 CREATE UNIQUE INDEX IF NOT EXISTS approval_requests_one_pending
   ON approval_requests (conversation_id) WHERE status = 'pending';
@@ -257,6 +263,20 @@ CREATE TABLE IF NOT EXISTS usage_daily (
 );
 
 
+-- 8b. Demo mode --------------------------------------------------------------------
+-- One row per visitor trying the demo: their pretend GitHub account and chat. Deleted after 24 hours.
+
+CREATE TABLE IF NOT EXISTS demo_sessions (
+  id UUID PRIMARY KEY,
+  visitor TEXT NOT NULL,              -- hashed IP, used only for the daily demo limit
+  sandbox JSONB NOT NULL,
+  messages JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS demo_sessions_created_idx ON demo_sessions (created_at);
+
+
 -- 9. Schema version ----------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS schema_info (
@@ -264,7 +284,7 @@ CREATE TABLE IF NOT EXISTS schema_info (
   version INTEGER NOT NULL,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-INSERT INTO schema_info (id, version) VALUES (1, 3)
+INSERT INTO schema_info (id, version) VALUES (1, 5)
 ON CONFLICT (id) DO UPDATE SET version = EXCLUDED.version, applied_at = now();
 
 
@@ -281,7 +301,7 @@ BEGIN
     'users', 'accounts', 'sessions', 'verification_token', 'user_profiles',
     'roles', 'permissions', 'role_permissions', 'user_roles', 'user_permission_overrides',
     'conversations', 'messages', 'approval_requests', 'audit_log',
-    'github_repositories', 'sync_runs', 'usage_daily', 'schema_info',
+    'github_repositories', 'sync_runs', 'usage_daily', 'schema_info', 'demo_sessions',
     'checkpoints', 'checkpoint_blobs', 'checkpoint_writes', 'checkpoint_migrations'
   ] LOOP
     IF to_regclass('public.' || t) IS NOT NULL THEN

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { githubClient } from "@/backend/agent";
 import { handle, readJson } from "@/backend/api";
+import { requireGithubKey } from "@/backend/github/key";
 import { HttpError, requireUser } from "@/backend/session";
 import { recordAction } from "@/backend/store";
 
@@ -22,6 +23,7 @@ export function POST(request: Request) {
     const { owner, repo, workflowId, ref } = body.data;
     const args = { repo: `${owner}/${repo}`, workflow_id: workflowId, ref };
 
+    await requireGithubKey(user.id);
     const octokit = await githubClient(user.id);
     try {
       await octokit.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: workflowId, ref });

@@ -33,6 +33,12 @@ export type Snapshot = {
   pending: PendingCall | null;
   policy: PendingPolicy | null;
   review: ApprovalRequest | null; // open admin review for the pending action
+  sandbox?: SandboxView; // demo mode only: the visitor's pretend GitHub
+};
+
+export type SandboxView = {
+  owner: string;
+  repos: { name: string; private: boolean; openIssues: number; failingCi: boolean }[];
 };
 
 export type ApprovalRequest = {
@@ -50,6 +56,7 @@ export type ApprovalRequest = {
   reviewNote: string;
   resultOk: boolean | null;
   resultDetail: string;
+  awaitingRequester: boolean; // decided, runs when the requester is next on the site
   createdAt: string;
   reviewedAt: string | null;
 };
@@ -77,8 +84,6 @@ export type ManagedUser = {
   disabled: boolean;
   lastSeenAt: string | null;
   createdAt: string | null;
-  hasToken: boolean;
-  scope: string | null;
   usageToday: number;
   overrides: Record<string, boolean>;
 };

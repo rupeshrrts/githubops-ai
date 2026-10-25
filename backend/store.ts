@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 
-import { decryptSecret, encryptSecret, isEncrypted } from "@/backend/crypto";
 import { query } from "@/backend/db";
 import type {
   AdminStats,
@@ -21,45 +20,24 @@ export function titleFrom(message: string): string {
   return words.slice(0, 6).join(" ") + (words.length > 6 ? "..." : "");
 }
 
-// ------------------------------------------------------------------ GitHub identity and tokens
+// ------------------------------------------------------------------ GitHub identity
+// No GitHub token is ever stored: each user's GitHub access stays in their browser (backend/github/key.ts).
 
-/** The user's GitHub token, decrypted. Legacy plaintext tokens are encrypted on first read. */
-export async function getGithubToken(userId: string): Promise<string | null> {
-  const rows = await query<{ id: number; access_token: string | null }>(
-    `SELECT id, access_token FROM accounts WHERE "userId" = $1 AND provider = 'github' ORDER BY id DESC LIMIT 1`,
+/** The numeric GitHub account id the user signed in with (a key they paste must belong to it). */
+export async function getGithubAccountId(userId: string): Promise<string | null> {
+  const rows = await query<{ providerAccountId: string }>(
+    `SELECT "providerAccountId" FROM accounts WHERE "userId" = $1 AND provider = 'github' ORDER BY id DESC LIMIT 1`,
     [userId],
   );
-  const stored = rows[0]?.access_token;
-  if (!stored) return null;
-  if (isEncrypted(stored)) return decryptSecret(stored);
-  await query("UPDATE accounts SET access_token = $1 WHERE id = $2", [encryptSecret(stored), rows[0].id]);
-  return stored;
+  return rows[0]?.providerAccountId ?? null;
 }
 
-export async function getGithubScopes(userId: string): Promise<string | null> {
-  const rows = await query<{ scope: string | null }>(
-    `SELECT scope FROM accounts WHERE "userId" = $1 AND provider = 'github' ORDER BY id DESC LIMIT 1`,
-    [userId],
-  );
-  return rows[0]?.scope ?? null;
-}
-
-/** What the Settings page shows about the user's GitHub connection and today's usage. */
-export async function getAccountSummary(userId: string): Promise<{
-  scope: string | null;
-  connected: boolean;
-  tokenUpdatedAt: string | null;
-  usage: number;
-} | null> {
-  // accounts."userId" is an integer and the other tables store ids as text, so compare as text everywhere.
-  const rows = await query<{ scope: string | null; connected: boolean; tokenUpdatedAt: string | null; usage: number }>(
-    `SELECT a.scope, (a.access_token IS NOT NULL) AS connected, p.token_updated_at::text AS "tokenUpdatedAt",
-            COALESCE((SELECT u.count FROM usage_daily u WHERE u.user_id = $1::text AND u.day = CURRENT_DATE), 0) AS usage
-     FROM accounts a LEFT JOIN user_profiles p ON p.user_id = a."userId"::text
-     WHERE a."userId"::text = $1::text AND a.provider = 'github' ORDER BY a.id DESC LIMIT 1`,
-    [userId],
-  );
-  return rows[0] ?? null;
+/** AI requests the user made today (the Settings page shows it against the daily limit). */
+export async function usageToday(userId: string): Promise<number> {
+  const rows = await query<{ count: number }>("SELECT count FROM usage_daily WHERE user_id = $1 AND day = CURRENT_DATE", [
+    userId,
+  ]);
+  return rows[0]?.count ?? 0;
 }
 
 export async function getGithubLogin(userId: string): Promise<string | null> {
@@ -69,14 +47,8 @@ export async function getGithubLogin(userId: string): Promise<string | null> {
   return rows[0]?.github_login ?? null;
 }
 
-/** Called on every sign-in: encrypt the fresh token, record the profile, and assign a first role. */
-export async function saveGithubSignIn(
-  userId: string,
-  login: string | null,
-  providerAccountId: string,
-  accessToken: string | undefined,
-  scope: string | undefined,
-): Promise<void> {
+/** Called on every sign-in: record the profile, drop the sign-in token, and assign a first role. */
+export async function saveGithubSignIn(userId: string, login: string | null, providerAccountId: string): Promise<void> {
   if (login) {
     await query(
       `INSERT INTO user_profiles (user_id, github_login, last_seen_at) VALUES ($1, $2, now())
@@ -84,14 +56,12 @@ export async function saveGithubSignIn(
       [userId, login],
     );
   }
-  // Auth.js writes the token in plaintext on first sign-in only; replace it with ciphertext every time.
-  if (accessToken) {
-    await query(
-      `UPDATE accounts SET access_token = $1, scope = $2 WHERE provider = 'github' AND "providerAccountId" = $3`,
-      [encryptSecret(accessToken), scope ?? null, providerAccountId],
-    );
-    await query("UPDATE user_profiles SET token_updated_at = now() WHERE user_id = $1", [userId]);
-  }
+  // Auth.js saves the sign-in token with a new account. It goes to the user's browser instead (backend/auth.ts).
+  await query(
+    `UPDATE accounts SET access_token = NULL, refresh_token = NULL, id_token = NULL
+     WHERE provider = 'github' AND "providerAccountId" = $1`,
+    [providerAccountId],
+  );
   await assignInitialRole(userId, login);
 }
 
@@ -122,12 +92,6 @@ export async function assignInitialRole(
     `INSERT INTO user_roles (user_id, role, assigned_by) VALUES ($1, $2, 'bootstrap') ON CONFLICT (user_id) DO NOTHING`,
     [userId, role],
   );
-}
-
-/** Forget the stored token (after revoking it at GitHub, or when an admin cuts access). */
-export async function clearGithubToken(userId: string): Promise<void> {
-  await query(`UPDATE accounts SET access_token = NULL WHERE "userId" = $1 AND provider = 'github'`, [userId]);
-  await query("DELETE FROM sessions WHERE \"userId\" = $1", [userId]);
 }
 
 export async function touchLastSeen(userId: string): Promise<void> {
@@ -199,7 +163,7 @@ const REQUEST_COLUMNS = `
   r.id::text, r.requester_id AS "requesterId", p.github_login AS "requesterLogin",
   r.conversation_id::text AS "conversationId", r.tool_call_id AS "toolCallId", r.tool, r.args, r.risk, r.status,
   r.reviewer_id AS "reviewerId", rp.github_login AS "reviewerLogin", r.review_note AS "reviewNote",
-  r.result_ok AS "resultOk", r.result_detail AS "resultDetail",
+  r.result_ok AS "resultOk", r.result_detail AS "resultDetail", r.awaiting_requester AS "awaitingRequester",
   r.created_at::text AS "createdAt", r.reviewed_at::text AS "reviewedAt"`;
 const REQUEST_FROM = `approval_requests r
   LEFT JOIN user_profiles p ON p.user_id = r.requester_id
@@ -221,9 +185,12 @@ export async function createApprovalRequest(input: {
   return rows[0].id;
 }
 
+/** The conversation's request that isn't finished: waiting for a reviewer, or decided and waiting to be carried out. */
 export async function getOpenRequest(conversationId: string): Promise<ApprovalRequest | null> {
   const rows = await query<ApprovalRequest>(
-    `SELECT ${REQUEST_COLUMNS} FROM ${REQUEST_FROM} WHERE r.conversation_id = $1 AND r.status = 'pending'`,
+    `SELECT ${REQUEST_COLUMNS} FROM ${REQUEST_FROM}
+     WHERE r.conversation_id = $1 AND (r.status = 'pending' OR r.awaiting_requester)
+     ORDER BY r.created_at DESC LIMIT 1`,
     [conversationId],
   );
   return rows[0] ?? null;
@@ -243,27 +210,41 @@ export async function listRequests(status: ApprovalRequest["status"] | "all" = "
   );
 }
 
-/** Atomically move a pending request to a final state; returns false if someone else already did. */
+/**
+ * Atomically move a pending request to a final state; returns false if someone else already did.
+ * An approval or rejection then waits for the requester (awaiting_requester): it is carried out from
+ * their side, where their GitHub key is (see applyReviewDecision in backend/approvals.ts).
+ */
 export async function resolveRequest(
   id: string,
   status: Exclude<ApprovalRequest["status"], "pending">,
   reviewerId: string | null,
   note = "",
-  result: { ok: boolean | null; detail: string } = { ok: null, detail: "" },
 ): Promise<boolean> {
   const rows = await query<{ id: string }>(
     `UPDATE approval_requests
-     SET status = $2, reviewer_id = $3, review_note = $4, result_ok = $5, result_detail = $6, reviewed_at = now()
+     SET status = $2, reviewer_id = $3, review_note = $4, reviewed_at = now(),
+         awaiting_requester = $2 IN ('approved', 'rejected')
      WHERE id = $1 AND status = 'pending' RETURNING id::text`,
-    [id, status, reviewerId, note.slice(0, 500), result.ok, result.detail.slice(0, 500)],
+    [id, status, reviewerId, note.slice(0, 500)],
   );
   return rows.length > 0;
 }
 
+/** Take the decided request waiting for this requester, exactly once (concurrent page loads can't both run it). */
+export async function claimDecidedRequest(requesterId: string, conversationId: string): Promise<ApprovalRequest | null> {
+  const rows = await query<{ id: string }>(
+    `UPDATE approval_requests SET awaiting_requester = false
+     WHERE conversation_id = $1 AND requester_id = $2 AND awaiting_requester RETURNING id::text`,
+    [conversationId, requesterId],
+  );
+  return rows[0] ? getRequest(rows[0].id) : null;
+}
+
 export async function cancelOpenRequests(conversationId: string): Promise<void> {
   await query(
-    `UPDATE approval_requests SET status = 'cancelled', reviewed_at = now()
-     WHERE conversation_id = $1 AND status = 'pending'`,
+    `UPDATE approval_requests SET status = 'cancelled', awaiting_requester = false, reviewed_at = COALESCE(reviewed_at, now())
+     WHERE conversation_id = $1 AND (status = 'pending' OR awaiting_requester)`,
     [conversationId],
   );
 }
@@ -333,15 +314,12 @@ export async function listUsers(): Promise<ManagedUser[]> {
     `SELECT u.id::text AS id, u.name, u.image, p.github_login AS login,
             COALESCE(r.role, 'member') AS role, COALESCE(p.disabled, false) AS disabled,
             p.last_seen_at::text AS "lastSeenAt", p.created_at::text AS "createdAt",
-            (a.access_token IS NOT NULL) AS "hasToken", a.scope,
             COALESCE(ud.count, 0) AS "usageToday",
             COALESCE((SELECT json_object_agg(o.permission, o.allowed) FROM user_permission_overrides o
                       WHERE o.user_id = u.id::text), '{}'::json) AS overrides
      FROM users u
      LEFT JOIN user_profiles p ON p.user_id = u.id::text
      LEFT JOIN user_roles r ON r.user_id = u.id::text
-     LEFT JOIN LATERAL (SELECT access_token, scope FROM accounts
-                        WHERE "userId" = u.id AND provider = 'github' ORDER BY id DESC LIMIT 1) a ON true
      LEFT JOIN usage_daily ud ON ud.user_id = u.id::text AND ud.day = CURRENT_DATE
      ORDER BY p.last_seen_at DESC NULLS LAST, u.id`,
   );

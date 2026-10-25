@@ -1,4 +1,4 @@
-// Admin user management: role, status, GitHub token, usage, and per-user permission exceptions.
+// Admin user management: role, status, usage, and per-user permission exceptions.
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -51,7 +51,7 @@ export function UsersTable({
         <table className="w-full text-left text-sm">
           <thead className="bg-ink-850 text-xs tracking-wide text-zinc-400 uppercase">
             <tr>
-              {["User", "Role", "Status", "GitHub", "Today", "Last seen", ""].map((heading) => (
+              {["User", "Role", "Status", "Today", "Last seen", ""].map((heading) => (
                 <th key={heading} className="px-4 py-3 font-medium whitespace-nowrap">
                   {heading}
                 </th>
@@ -97,7 +97,6 @@ export function UsersTable({
                     <td className="px-4 py-3">
                       {user.disabled ? <Badge tone="red">Disabled</Badge> : <Badge tone="green">Active</Badge>}
                     </td>
-                    <td className="px-4 py-3">{user.hasToken ? <Badge>Connected</Badge> : <Badge tone="amber">No token</Badge>}</td>
                     <td className="px-4 py-3 text-zinc-300">{user.usageToday}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-zinc-400">{user.seen}</td>
                     <td className="px-4 py-3">
@@ -121,24 +120,12 @@ export function UsersTable({
                             {user.disabled ? "Enable" : "Disable"}
                           </button>
                         )}
-                        {!self && user.hasToken && (
-                          <button
-                            type="button"
-                            disabled={locked}
-                            className={`${buttonStyles.ghost} text-red-300`}
-                            onClick={() =>
-                              change(user, { revokeToken: true }, `Delete @${user.login}'s stored GitHub token? They must sign in again.`)
-                            }
-                          >
-                            Revoke token
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
                   {expanded === user.id && (
                     <tr className="bg-black/20">
-                      <td colSpan={7} className="px-4 py-4">
+                      <td colSpan={6} className="px-4 py-4">
                         <p className="mb-3 text-xs text-zinc-400">
                           Exceptions on top of the <span className="text-zinc-200">{user.role}</span> role. &quot;Role default&quot; follows the role.
                         </p>

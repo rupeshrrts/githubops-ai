@@ -1,17 +1,17 @@
-// PATCH /api/admin/users/:id: one admin change to a user: role, disabled, a permission exception, or token revocation.
+// PATCH /api/admin/users/:id: one admin change to a user: role, disabled, or a permission exception.
+// (Admins never hold users' GitHub access; disabling a user signs them out and blocks every request.)
 import { z } from "zod";
 
 import { handle, readJson } from "@/backend/api";
 import { setDisabled, setOverride, setRole } from "@/backend/rbac";
 import { HttpError, requireUser } from "@/backend/session";
-import { clearGithubToken, recordAction } from "@/backend/store";
+import { recordAction } from "@/backend/store";
 
 const Body = z
   .object({
     role: z.string().optional(),
     disabled: z.boolean().optional(),
     override: z.object({ permission: z.string(), allowed: z.boolean().nullable() }).optional(),
-    revokeToken: z.literal(true).optional(),
   })
   .refine((body) => Object.keys(body).length === 1, "Send exactly one change per request.");
 
@@ -36,10 +36,6 @@ export function PATCH(request: Request, { params }: { params: Promise<{ id: stri
     } else if (change.override) {
       await setOverride(userId, change.override.permission, change.override.allowed, admin.id);
       await audit("permission.changed", change.override);
-    } else if (change.revokeToken) {
-      if (userId === admin.id) throw new HttpError(400, "Use Settings → Disconnect GitHub for your own account.");
-      await clearGithubToken(userId);
-      await audit("token.revoked", {});
     }
     return { ok: true };
   });

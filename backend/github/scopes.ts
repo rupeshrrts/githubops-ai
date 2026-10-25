@@ -1,6 +1,7 @@
-// OAuth scopes requested when a user signs in. The default grants broad control so the
-// agent can do almost anything the user can do on GitHub; the approval gate still guards
-// every write. Override with GITHUB_SCOPES (space-separated) for a narrower deployment.
+// GitHub permissions asked for in the one "Sign in with GitHub" approval. The default grants broad control so
+// the agent can do almost anything the user can do on GitHub; the approval cards still guard every write, and
+// the access stays in the user's own browser (backend/github/key.ts). Override with GITHUB_SCOPES
+// (space-separated). The same list is suggested to users who prefer to create their own key.
 export const FULL_ACCESS_SCOPES = [
   "repo", // full control of public and private repositories
   "delete_repo",
@@ -32,7 +33,15 @@ export function requestedScopes(): string[] {
   return configured?.length ? configured : FULL_ACCESS_SCOPES;
 }
 
-/** Scopes the deployment asks for that this user's token does not have yet. */
+/** GitHub's "new classic key" page with the suggested permissions ticked. */
+export function newKeyUrl(scopes: string[] = requestedScopes()): string {
+  return `https://github.com/settings/tokens/new?description=GitHubOps%20AI&scopes=${scopes.join(",")}`;
+}
+
+/** GitHub's "new fine-grained key" page: the user picks exactly which repositories and permissions. */
+export const FINE_GRAINED_KEY_URL = "https://github.com/settings/personal-access-tokens/new";
+
+/** Permissions the deployment asks for that this user's access does not have yet. */
 export function missingScopes(granted: string | null, requested: string[] = requestedScopes()): string[] {
   const have = new Set<string>();
   for (const scope of (granted ?? "").split(/[\s,]+/).filter(Boolean)) {

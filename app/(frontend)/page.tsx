@@ -1,9 +1,11 @@
 // Landing page (/): the public product page with "Sign in with GitHub". Signed-in users go straight to /chat.
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { signInWithGitHub } from "@/backend/actions";
 import { ClearUrlError } from "@/frontend/components/ClearUrlError";
 import {
+  PlayIcon,
   BoltIcon,
   ChatIcon,
   CheckIcon,
@@ -27,7 +29,7 @@ const FEATURES = [
   { icon: ShieldIcon, title: "Approval workflows", body: "Writes wait for your click. Sensitive actions (merge, visibility, delete) go to an admin review queue first." },
   { icon: UsersIcon, title: "Roles & permissions", body: "Viewer, member, maintainer, admin, plus per-user exceptions. The AI only sees the tools a user is allowed to use." },
   { icon: ListIcon, title: "Complete audit trail", body: "Every proposal, approval, rejection and admin change, with who decided and what GitHub answered." },
-  { icon: KeyIcon, title: "Secure token handling", body: "OAuth tokens are AES-256-GCM encrypted at rest, never sent to the browser, and revocable in one click." },
+  { icon: KeyIcon, title: "Your access stays with you", body: "One approval connects GitHub. That access is kept encrypted in your own browser, never in the database, and you can disconnect in one click." },
   { icon: RepoIcon, title: "Repos & Actions dashboard", body: "Synced repository list, CI runs, open PRs and issues, and one-click workflow runs per repository." },
 ];
 
@@ -35,13 +37,14 @@ const SAFETY = [
   "The AI can propose changes but never run them on its own",
   "Deletes, merges and visibility changes are flagged as sensitive",
   "Approval rules are enforced on the server, not just in the UI",
-  "API calls are locked to api.github.com and can't leak tokens",
+  "Your GitHub access stays in your browser and is never saved on the server",
+  "API calls are locked to api.github.com, so your access can't be sent elsewhere",
   "Per-user daily limits keep a public deployment affordable",
   "Row Level Security keeps Supabase's public API out of every table",
 ];
 
 const STEPS = [
-  ["Sign in", "One click with GitHub. No API keys or tokens to paste."],
+  ["Sign in", "One click with GitHub and one approval. Your access stays in your browser."],
   ["Ask", "“Create a branch feature/login in my api repo.”"],
   ["Review", "An approval card shows exactly what will change. Edit, approve or reject."],
   ["Audited", "It runs with your own GitHub permissions and lands in the audit log."],
@@ -101,6 +104,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         <nav className="flex items-center gap-5 text-sm text-zinc-300">
           <a href="#features" className="hidden hover:text-white sm:block">Features</a>
           <a href="#security" className="hidden hover:text-white sm:block">Security</a>
+          <Link href="/demo" className="hidden hover:text-white sm:block">Demo</Link>
           <a href={REPO_URL} className="flex items-center gap-1.5 hover:text-white">
             <GitHubIcon className="size-4" /> <span className="hidden sm:inline">Source</span>
           </a>
@@ -124,11 +128,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <SignInButton disabled={blocked} large />
-            <a href={REPO_URL} className="inline-flex items-center gap-2 rounded-xl border border-line px-5 py-3 font-semibold text-zinc-200 hover:bg-white/5">
-              View source
-            </a>
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-400/50 bg-accent-soft px-5 py-3 font-semibold text-rose-100 hover:bg-rose-500/20"
+            >
+              <PlayIcon className="size-4" /> Try the live demo
+            </Link>
           </div>
-          <p className="mt-4 text-xs text-zinc-500">No setup for users. GitHub asks once for access; your token stays encrypted on the server.</p>
+          <p className="mt-4 text-xs text-zinc-500">
+            The demo needs no sign-in: it runs on a pretend GitHub account. For your real one it&apos;s one approval, and
+            your GitHub access stays in your own browser, never in our database.
+          </p>
 
           {signInError && !blocked && (
             <div role="alert" className="mt-6 max-w-lg rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
@@ -192,8 +202,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
             </div>
             <h2 className="text-3xl font-bold tracking-tight text-white">Secure by default</h2>
             <p className="mt-3 text-zinc-400">
-              Broad GitHub access is only safe with narrow, reviewable actions. Every guarantee below is enforced in code
-              and covered by tests.
+              The assistant acts as you, with access that stays in your own browser, and nothing changes without your
+              click. Every guarantee below is enforced in code and covered by tests.
             </p>
           </div>
           <ul className="grid gap-3 sm:grid-cols-2">
@@ -223,9 +233,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <section className="relative mx-auto max-w-6xl px-4 pb-24 sm:px-6">
         <div className="flex flex-col items-center gap-6 rounded-3xl border border-rose-500/30 bg-[radial-gradient(ellipse_at_center,rgba(225,29,72,0.18),transparent_70%)] px-6 py-14 text-center">
           <BoltIcon className="size-8 text-rose-300" />
-          <h2 className="text-3xl font-bold tracking-tight text-white">Try it on your own GitHub</h2>
-          <p className="max-w-lg text-zinc-400">Sign in, ask what&apos;s going on in your repos, and approve your first change in under a minute.</p>
-          <SignInButton disabled={blocked} large />
+          <h2 className="text-3xl font-bold tracking-tight text-white">Try it now</h2>
+          <p className="max-w-lg text-zinc-400">
+            Play with the demo account in seconds, no sign-in needed. Or sign in and approve your first real change in
+            under a minute.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-rose-950/40 hover:bg-rose-500"
+            >
+              <PlayIcon className="size-4" /> Try the live demo
+            </Link>
+            <SignInButton disabled={blocked} large />
+          </div>
         </div>
       </section>
 

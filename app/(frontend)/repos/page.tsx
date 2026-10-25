@@ -1,5 +1,7 @@
 // /repos: the user's GitHub repositories, mirrored in the database. The first visit syncs automatically;
-// "Sync now" refreshes on demand.
+// "Sync now" refreshes on demand. Both need the user's GitHub access in this browser.
+import Link from "next/link";
+
 import { ReposView, SyncButton } from "@/frontend/components/ReposView";
 import { Shell } from "@/frontend/components/Shell";
 import { Card, EmptyState, Page, PageHeader, Stat, timeAgo } from "@/frontend/components/ui";
@@ -14,7 +16,7 @@ export const metadata = { title: "Repositories" };
 
 export default async function ReposPage() {
   const { user, shell } = await loadWorkspace("github.read");
-  const canSync = can(user.access, "repos.sync");
+  const canSync = can(user.access, "repos.sync") && shell.githubConnected;
 
   let run = await lastSync(user.id);
   let syncError: string | null = null;
@@ -55,7 +57,18 @@ export default async function ReposPage() {
 
         {repos.length === 0 ? (
           <EmptyState title="No repositories yet">
-            {canSync ? "Click Sync now to load your repositories from GitHub." : "Ask an admin for the repos.sync permission."}
+            {!shell.githubConnected ? (
+              <>
+                <Link href="/settings#github-key" className="text-rose-300 underline">
+                  Connect GitHub
+                </Link>{" "}
+                to load your repositories.
+              </>
+            ) : canSync ? (
+              "Click Sync now to load your repositories from GitHub."
+            ) : (
+              "Ask an admin for the repos.sync permission."
+            )}
           </EmptyState>
         ) : (
           <ReposView repos={repos.map((repo) => ({ ...repo, updated: timeAgo(repo.pushedAt) }))} />

@@ -1,11 +1,11 @@
 // /repos/:owner/:name: live dashboard for one repository: workflows (with Run buttons), recent CI runs,
-// open pull requests and issues. Data comes straight from GitHub with the user's own token.
+// open pull requests and issues. Data comes straight from GitHub with the user's own access.
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BoltIcon, ExternalIcon, LockIcon, StarIcon } from "@/frontend/components/icons";
 import { Shell } from "@/frontend/components/Shell";
-import { Badge, buttonStyles, Card, Page, PageHeader, timeAgo } from "@/frontend/components/ui";
+import { Badge, buttonStyles, Card, EmptyState, Page, PageHeader, timeAgo } from "@/frontend/components/ui";
 import { WorkflowRunner } from "@/frontend/components/WorkflowRunner";
 import { githubClient } from "@/backend/agent";
 import { loadWorkspace } from "@/backend/pages";
@@ -27,6 +27,21 @@ function value<T>(result: PromiseSettledResult<T>): T | null {
 export default async function RepoPage({ params }: { params: Promise<{ owner: string; name: string }> }) {
   const { owner, name } = await params;
   const { user, shell } = await loadWorkspace("github.read");
+  if (!shell.githubConnected) {
+    return (
+      <Shell shell={shell}>
+        <Page>
+          <EmptyState title="Connect GitHub">
+            This page reads {owner}/{name} live from GitHub with your own access.{" "}
+            <Link href="/settings#github-key" className="text-rose-300 underline">
+              Connect it in Settings
+            </Link>{" "}
+            (one approval).
+          </EmptyState>
+        </Page>
+      </Shell>
+    );
+  }
   const octokit = await githubClient(user.id);
   const where = { owner, repo: name };
 

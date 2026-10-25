@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
-// GitHub tokens are stored encrypted with AES-256-GCM, so a leaked database dump or
-// backup is useless without TOKEN_ENCRYPTION_KEY (which lives only in the deployment env).
+// Each user's GitHub key is kept in their browser encrypted with AES-256-GCM (see backend/github/key.ts),
+// so the cookie is useless without TOKEN_ENCRYPTION_KEY (which lives only in the deployment env).
 const PREFIX = "enc:v1:";
 
 type Env = Record<string, string | undefined>;

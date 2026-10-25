@@ -1,5 +1,5 @@
 // App frame for signed-in pages: sidebar (navigation, conversations, user card) and the
-// "grant full access" banner.
+// "connect GitHub" banner.
 "use client";
 
 import Link from "next/link";
@@ -22,19 +22,19 @@ import {
 import type { ShellData } from "@/backend/pages";
 import type { Conversation } from "@/backend/types";
 
-/** Shown to users whose GitHub sign-in predates the current permission set. */
-function AccessBanner({ missing }: { missing: string[] }) {
+/** Shown when this browser has no GitHub access for the user (e.g. they disconnected). One click fixes it. */
+function ConnectBanner() {
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-sm text-amber-100">
       <span className="flex-1">
-        Some actions need more GitHub access: <span className="font-mono text-xs">{missing.join(", ")}</span>
+        Connect GitHub so the assistant can work on your repositories. One approval; the access stays in your browser.
       </span>
       <form action={signInWithGitHub}>
         <button
           type="submit"
           className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-ink-900 hover:bg-zinc-100"
         >
-          <GitHubIcon className="size-4" /> Grant full access
+          <GitHubIcon className="size-4" /> Connect GitHub
         </button>
       </form>
     </div>
@@ -42,7 +42,7 @@ function AccessBanner({ missing }: { missing: string[] }) {
 }
 
 export function Shell({ shell, children }: { shell: ShellData; children: React.ReactNode }) {
-  const { user, conversations, missingScopes, nav } = shell;
+  const { user, conversations, githubConnected, nav } = shell;
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -154,7 +154,7 @@ export function Shell({ shell, children }: { shell: ShellData; children: React.R
           <LogoMark className="size-6" />
           <span className="font-semibold">GitHubOps AI</span>
         </header>
-        {missingScopes.length > 0 && <AccessBanner missing={missingScopes} />}
+        {!githubConnected && pathname !== "/settings" && <ConnectBanner />}
         {children}
       </div>
     </div>

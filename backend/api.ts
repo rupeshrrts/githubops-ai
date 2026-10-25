@@ -15,7 +15,9 @@ import type { Snapshot } from "@/backend/types";
 export async function handle(request: Request, action: () => Promise<unknown>): Promise<Response> {
   try {
     if (request.method !== "GET" && request.method !== "HEAD") assertSameOrigin(request);
-    return Response.json(await action());
+    const result = await action();
+    // Routes that need headers (e.g. a cookie) return their own Response.
+    return result instanceof Response ? result : Response.json(result);
   } catch (error) {
     // A route can attach the conversation it already created, so the browser can open it and retry.
     const conversationId = (error as { conversationId?: string }).conversationId;

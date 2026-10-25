@@ -14,6 +14,7 @@ export async function freshDatabase(): Promise<PGlite> {
 const DATA_TABLES = [
   "users", "accounts", "sessions", "verification_token", "user_profiles", "user_roles", "user_permission_overrides",
   "conversations", "messages", "approval_requests", "audit_log", "github_repositories", "sync_runs", "usage_daily",
+  "demo_sessions",
 ];
 
 /** Empty every data table but keep the seeded roles and permissions (much faster than a new database). */
@@ -21,7 +22,7 @@ export async function resetDatabase(db: PGlite): Promise<void> {
   await db.exec(`TRUNCATE ${DATA_TABLES.join(", ")} RESTART IDENTITY CASCADE`);
 }
 
-/** Same contract as lib/db.ts `query`, backed by PGlite. */
+/** Same contract as backend/db.ts `query`, backed by PGlite. */
 export function queryVia(db: () => PGlite) {
   return async (text: string, params: unknown[] = []) => (await db().query(text, params)).rows;
 }

@@ -1,12 +1,13 @@
 // POST /api/chat — the main endpoint: the user sends a message, the AI agent works on it.
 //
-// Flow: check permission → check daily limit → find or create the conversation → save the
-// user's message → run the agent → save its answer → return the conversation "snapshot"
+// Flow: check permission and the user's GitHub key → check daily limit → find or create the conversation →
+// save the user's message → run the agent → save its answer → return the conversation "snapshot"
 // (messages + any action waiting for approval) to the browser.
 import { z } from "zod";
 
 import { agentFor } from "@/backend/agent";
 import { enforceDailyLimit, handle, ownedConversation, readJson, saveAnswer, snapshot } from "@/backend/api";
+import { requireGithubKey } from "@/backend/github/key";
 import { HttpError, requireUser } from "@/backend/session";
 import { cancelOpenRequests, createConversation, saveMessage, titleFrom, touchLastSeen } from "@/backend/store";
 
@@ -25,6 +26,7 @@ export function POST(request: Request) {
     if (!body.success) throw new HttpError(400, "Message must be 1 to 4000 characters.");
     const { conversationId, message } = body.data;
 
+    await requireGithubKey(user.id); // before using the AI: without a key it couldn't do anything
     await enforceDailyLimit(user.id);
     const id = conversationId
       ? (await ownedConversation(user.id, conversationId)).id
